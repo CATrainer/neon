@@ -37,9 +37,10 @@ commands, same flow.
 ## Hooks
 
 - **Stop** — runs the active change's `done_when`. Exit 2 with the failure, so
-  the agent keeps working instead of declaring victory. Never loops: it stands
-  down on `stop_hook_active`, after three consecutive blocks, and whenever it
-  cannot tell what is going on.
+  the agent keeps working instead of declaring victory. It keeps doing so within
+  a turn while the checks still fail, but never loops forever: it stands down
+  after three consecutive blocks (and says so), and whenever it cannot tell
+  what is going on. A pass resets the count.
 - **PreToolUse** on Write/Edit — denies writes to `protected_paths` from
   `neon.yaml`, and in every repo to `.neon/**` and Claude Code's settings
   files. On Bash — denies commands that name `.neon/` or a settings file.

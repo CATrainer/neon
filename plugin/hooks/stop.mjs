@@ -9,8 +9,11 @@ import { api, git, readInput, session } from './lib.mjs'
  *
  * Three rules keep this from becoming the thing people uninstall:
  *
- *   - it never loops: `stop_hook_active` means we already blocked once this
- *     turn, and a ceiling stops it blocking forever on work it cannot fix;
+ *   - it never loops forever: after BLOCK_CEILING consecutive blocks in a
+ *     session it stands aside and says so, and a pass resets the count. It
+ *     does not stand aside merely because `stop_hook_active` is set — that
+ *     made the gate one-shot, letting the agent's second attempt to stop in a
+ *     turn through with the checks still failing (NEON-D-013);
  *   - it is overridable, explicitly, by the person — not by the agent talking
  *     itself out of it. The only override is NEON_SKIP_CHECKS=1 in the
  *     environment Claude Code was launched with: the agent's shell commands
@@ -22,9 +25,6 @@ const BLOCK_CEILING = 3
 
 const input = await readInput()
 const cwd = input.cwd ?? process.cwd()
-
-// Already blocked once in this turn: let the agent finish rather than spin.
-if (input.stop_hook_active) process.exit(0)
 
 if (process.env.NEON_SKIP_CHECKS === '1') {
   console.error('neon: checks skipped (NEON_SKIP_CHECKS=1 was set when this session was launched)')

@@ -308,11 +308,30 @@ describe('the Stop hook, every other path', () => {
     expect(result.stderr).toMatch(/could not run checks .* not blocking/)
   })
 
-  it('never blocks twice in one stop cycle', async () => {
+  it('keeps blocking within one turn while the checks still fail, up to the ceiling', async () => {
+    // Claude Code sets stop_hook_active once the agent is continuing because a
+    // stop hook blocked. Standing aside on it made the gate one-shot: the
+    // agent's second attempt to stop in the same turn always succeeded.
+    const session = stop()
+    const first = await runHook('stop', session)
+    expect(first.code).toBe(2)
+
     const calls = neon.checkCalls
-    const result = await runHook('stop', stop({ stop_hook_active: true }))
-    expect(result.code).toBe(0)
-    expect(neon.checkCalls).toBe(calls)
+    const again = await runHook('stop', { ...session, stop_hook_active: true })
+    expect(again.code).toBe(2)
+    expect(neon.checkCalls).toBe(calls + 1)
+
+    expect((await runHook('stop', { ...session, stop_hook_active: true })).code).toBe(2)
+    const gaveUp = await runHook('stop', { ...session, stop_hook_active: true })
+    expect(gaveUp.code).toBe(0)
+    expect(gaveUp.stderr).toMatch(/still fails its checks after 3 attempts/)
+  })
+
+  it('lets the agent stop mid-turn once the checks pass', async () => {
+    const session = stop()
+    expect((await runHook('stop', session)).code).toBe(2)
+    neon.results = passing
+    expect((await runHook('stop', { ...session, stop_hook_active: true })).code).toBe(0)
   })
 
   it('reports an empty definition of done without blocking on it', async () => {
