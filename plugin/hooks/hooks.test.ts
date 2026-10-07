@@ -1,12 +1,12 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 /**
  * The hooks as Claude Code runs them: a separate process, JSON on stdin, and
@@ -56,11 +56,11 @@ const decisionOf = (result: HookResult) => {
 const REMOTE = 'https://github.com/example/hooked'
 const BRANCH = 'neon/work/hk-1-hooked'
 
-function makeRepo(): string {
+function makeRepo(remote = REMOTE): string {
   const root = mkdtempSync(join(tmpdir(), 'neon-hooks-'))
   const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' })
   git('init', '-q')
-  git('remote', 'add', 'origin', REMOTE)
+  git('remote', 'add', 'origin', remote)
   git('-c', 'user.email=hooks@test', '-c', 'user.name=hooks', 'commit', '-q', '--allow-empty', '-m', 'init')
   git('checkout', '-q', '-b', BRANCH)
   writeFileSync(
@@ -86,6 +86,10 @@ interface FakeNeon {
   results: CheckResult[]
   /** Whether this checkout's branch has live claimed work. */
   claimed: boolean
+  /** Set to make the check endpoint fail outright. */
+  checkStatus: number
+  /** Set to report a definition of done with nothing in it. */
+  problem: string | null
   checkCalls: number
   server: Server
 }
@@ -94,6 +98,8 @@ const neon: FakeNeon = {
   url: '',
   results: [],
   claimed: true,
+  checkStatus: 200,
+  problem: null,
   checkCalls: 0,
   server: createServer((req, res) => route(req, res)),
 }
@@ -124,6 +130,10 @@ function route(req: IncomingMessage, res: ServerResponse) {
   }
   if (url.pathname === `/api/changes/${CHANGE.id}/check` && req.method === 'POST') {
     neon.checkCalls += 1
+    if (neon.checkStatus !== 200) return send(neon.checkStatus, { error: 'internal', message: 'boom' })
+    if (neon.problem) {
+      return send(200, { changeId: CHANGE.id, workOrderKey: WORK_ORDER.key, passed: false, results: [], problem: neon.problem })
+    }
     return send(200, {
       changeId: CHANGE.id,
       workOrderKey: WORK_ORDER.key,
@@ -137,6 +147,17 @@ function route(req: IncomingMessage, res: ServerResponse) {
 const failing: CheckResult[] = [
   { check: 'tests', result: 'fail', runId: 'run-1', failureSummary: '2 tests failed', thresholdViolation: null },
 ]
+const passing: CheckResult[] = [
+  { check: 'tests', result: 'pass', runId: 'run-2', failureSummary: null, thresholdViolation: null },
+]
+
+/** Every test starts from a claimed change and a healthy service. */
+function resetNeon() {
+  neon.results = failing
+  neon.claimed = true
+  neon.checkStatus = 200
+  neon.problem = null
+}
 
 let repo: string
 
@@ -247,5 +268,130 @@ describe('the Stop hook override', () => {
     expect(result.stderr).toMatch(/NEON_SKIP_CHECKS=1/)
     // Skipped means not run, not run-and-ignored.
     expect(neon.checkCalls).toBe(calls)
+  })
+})
+
+describe('the Stop hook, every other path', () => {
+  beforeEach(resetNeon)
+
+  it('lets the agent stop when the definition of done passes', async () => {
+    neon.results = passing
+    const result = await runHook('stop', stop())
+    expect(result.code).toBe(0)
+  })
+
+  it('stands aside for a repo Neon does not know', async () => {
+    const elsewhere = makeRepo('https://github.com/example/unregistered')
+    const calls = neon.checkCalls
+    const result = await runHook('stop', stop({ cwd: elsewhere }))
+    expect(result.code).toBe(0)
+    expect(neon.checkCalls).toBe(calls)
+  })
+
+  it('stands aside when nothing is claimed on this branch', async () => {
+    neon.claimed = false
+    const calls = neon.checkCalls
+    const result = await runHook('stop', stop())
+    expect(result.code).toBe(0)
+    expect(neon.checkCalls).toBe(calls)
+  })
+
+  it('stands aside when Neon is unreachable: being down blocks merges, not work', async () => {
+    const result = await runHook('stop', stop(), { NEON_URL: 'http://127.0.0.1:1' })
+    expect(result.code).toBe(0)
+  })
+
+  it('stands aside, and says so, when the check call itself fails', async () => {
+    neon.checkStatus = 500
+    const result = await runHook('stop', stop())
+    expect(result.code).toBe(0)
+    expect(result.stderr).toMatch(/could not run checks .* not blocking/)
+  })
+
+  it('never blocks twice in one stop cycle', async () => {
+    const calls = neon.checkCalls
+    const result = await runHook('stop', stop({ stop_hook_active: true }))
+    expect(result.code).toBe(0)
+    expect(neon.checkCalls).toBe(calls)
+  })
+
+  it('reports an empty definition of done without blocking on it', async () => {
+    neon.problem = 'work order HK-1 has an empty done_when: there is nothing to check'
+    const result = await runHook('stop', stop())
+    expect(result.code).toBe(0)
+    expect(result.stderr).toMatch(/empty done_when/)
+  })
+
+  it('stops blocking after three consecutive blocks, and says why', async () => {
+    const session = stop()
+    const codes: (number | null)[] = []
+    for (let i = 0; i < 4; i += 1) codes.push((await runHook('stop', session)).code)
+    expect(codes).toEqual([2, 2, 2, 0])
+  })
+
+  it('starts counting again after the checks pass', async () => {
+    const session = stop()
+    expect((await runHook('stop', session)).code).toBe(2)
+    expect((await runHook('stop', session)).code).toBe(2)
+    neon.results = passing
+    expect((await runHook('stop', session)).code).toBe(0)
+    neon.results = failing
+    expect((await runHook('stop', session)).code).toBe(2)
+    expect((await runHook('stop', session)).code).toBe(2)
+    expect((await runHook('stop', session)).code).toBe(2)
+  })
+})
+
+// -- SessionStart ----------------------------------------------------------------
+
+describe('SessionStart', () => {
+  beforeEach(resetNeon)
+
+  it('announces claimed work and its definition of done', async () => {
+    const result = await runHook('session-start', { cwd: repo })
+    expect(result.code).toBe(0)
+    expect(result.stdout).toMatch(/claimed for HK-1/)
+    expect(result.stdout).toMatch(/Definition of done: tests/)
+  })
+
+  it('says when the repo is registered but nothing is claimed', async () => {
+    neon.claimed = false
+    const result = await runHook('session-start', { cwd: repo })
+    expect(result.stdout).toMatch(/no work is claimed on neon\/work\/hk-1-hooked/)
+  })
+
+  it('says nothing about a repo Neon does not know', async () => {
+    const elsewhere = makeRepo('https://github.com/example/unregistered')
+    const result = await runHook('session-start', { cwd: elsewhere })
+    expect(result.code).toBe(0)
+    expect(result.stdout).toBe('')
+  })
+})
+
+// -- PostToolUse -----------------------------------------------------------------
+
+describe('PostToolUse', () => {
+  it('runs the formatter on the edited file, and never blocks on a failing lint', async () => {
+    const root = makeRepo()
+    // Commands as files: the hooks' YAML reader is deliberately minimal and
+    // strips the quotes an inline `node -e "..."` would need.
+    writeFileSync(
+      join(root, 'fmt.mjs'),
+      "import { writeFileSync } from 'node:fs'\nwriteFileSync('formatted.txt', process.argv[2])\n",
+    )
+    writeFileSync(join(root, 'lint.mjs'), "console.error('lint: 1 problem in src/a.ts')\nprocess.exit(1)\n")
+    writeFileSync(
+      join(root, 'neon.yaml'),
+      ['format:', '  command: node fmt.mjs', 'lint:', '  command: node lint.mjs', ''].join('\n'),
+    )
+
+    const result = await runHook('post-tool-use', {
+      tool_name: 'Edit',
+      cwd: root,
+      tool_input: { file_path: join(root, 'src', 'a.ts') },
+    })
+    expect(result.code).toBe(0)
+    expect(readFileSync(join(root, 'formatted.txt'), 'utf8')).toBe('src/a.ts')
+    expect(result.stderr).toMatch(/lint: 1 problem in src\/a\.ts/)
   })
 })
