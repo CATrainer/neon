@@ -63,15 +63,10 @@ export async function session(cwd) {
     return { root, remote, branch, repo: null, change: null, workOrder: null }
   }
 
-  const { changes } = await api(`/api/changes?repoId=${repo.id}`)
-  const change =
-    changes.find(
-      (c) => c.branch === branch && !['merged', 'closed', 'abandoned'].includes(c.state),
-    ) ?? null
-
-  let workOrder = null
-  if (change) workOrder = await api(`/api/work-orders/${change.workOrderId}`)
-
+  if (!branch) return { root, remote, branch, repo, change: null, workOrder: null }
+  const { change, workOrder } = await api(
+    `/api/changes/active?repoId=${encodeURIComponent(repo.id)}&branch=${encodeURIComponent(branch)}`,
+  )
   return { root, remote, branch, repo, change, workOrder }
 }
 

@@ -343,3 +343,63 @@ describe('the loop, for inquiry work', () => {
     expect(res.body.message).toMatch(/records, not commits/)
   })
 })
+
+describe('finding the live change for a checkout', () => {
+  it('finds it by branch even when it is older than the 100 newest changes', async () => {
+    // The hooks used to list /api/changes and filter, which only ever saw the
+    // newest 100: in a busy repo the Stop hook lost track of older live work
+    // and, unable to tell, stood aside.
+    const repo = await call<{ id: string }>(h.app, 'POST', '/api/repos', {
+      name: 'busy',
+      remoteUrl: 'https://github.com/neon-fixture/busy',
+      kind: 'code',
+      keyPrefix: 'BSY',
+    })
+    const repoId = repo.body.id
+    await call(h.app, 'POST', `/api/repos/${repoId}/checks`, { checks: [{ name: 'noop', kind: 'noop' }] })
+
+    const claim = async (title: string) => {
+      const workOrder = await call<{ key: string }>(h.app, 'POST', '/api/work-orders', {
+        kind: 'code',
+        title,
+        intent: 'Fill the repo with live work.',
+        acceptanceCriteria: ['it exists'],
+        doneWhen: [{ check: 'noop' }],
+        state: 'ready',
+        repoId,
+      })
+      const started = await call<{ branch: string; change: { id: string } }>(
+        h.app,
+        'POST',
+        '/api/changes/start',
+        { workOrderKey: workOrder.body.key, repoId },
+      )
+      return { key: workOrder.body.key, ...started.body }
+    }
+
+    const oldest = await claim('The oldest live work in the repo')
+    for (let i = 0; i < 100; i += 1) await claim(`Later work ${i}`)
+
+    const listed = await call<{ changes: { id: string }[] }>(h.app, 'GET', `/api/changes?repoId=${repoId}`)
+    expect(listed.body.changes.map((c) => c.id)).not.toContain(oldest.change.id)
+
+    const active = await call<{ change: { id: string } | null; workOrder: { key: string } | null }>(
+      h.app,
+      'GET',
+      `/api/changes/active?repoId=${repoId}&branch=${encodeURIComponent(oldest.branch)}`,
+    )
+    expect(active.body.change?.id).toBe(oldest.change.id)
+    expect(active.body.workOrder?.key).toBe(oldest.key)
+  })
+
+  it('answers nulls for a branch with no live work', async () => {
+    const repos = await call<{ repos: { id: string }[] }>(h.app, 'GET', '/api/repos')
+    const active = await call<{ change: null; workOrder: null }>(
+      h.app,
+      'GET',
+      `/api/changes/active?repoId=${repos.body.repos[0]!.id}&branch=main`,
+    )
+    expect(active.status).toBe(200)
+    expect(active.body).toEqual({ change: null, workOrder: null })
+  })
+})

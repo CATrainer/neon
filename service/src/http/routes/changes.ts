@@ -2,12 +2,14 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import {
   abandonChange,
+  findActiveChangeForBranch,
   finishWork,
   getChange,
   listChanges,
   startWork,
 } from '../../domain/changes.js'
 import { runDoneWhen } from '../../domain/runs.js'
+import { getWorkOrder } from '../../domain/workOrders.js'
 import type { Services } from '../../services.js'
 
 const startBody = z.object({
@@ -49,6 +51,18 @@ export async function registerChangeRoutes(app: FastifyInstance, _services: Serv
   app.get('/api/changes', async (request) => {
     const { repoId } = z.object({ repoId: z.string().optional() }).parse(request.query)
     return { changes: await listChanges(request.neon.db, repoId) }
+  })
+
+  /** The live change for a checkout, and its work order: what every hook and
+   *  the CLI need to know first. Answered by the database rather than by
+   *  filtering a page of recent changes, which misses older live work. */
+  app.get('/api/changes/active', async (request) => {
+    const { repoId, branch } = z
+      .object({ repoId: z.string().min(1), branch: z.string().min(1) })
+      .parse(request.query)
+    const change = await findActiveChangeForBranch(request.neon.db, repoId, branch)
+    if (!change) return { change: null, workOrder: null }
+    return { change, workOrder: await getWorkOrder(request.neon.db, change.workOrderId) }
   })
 
   app.get('/api/changes/:id', async (request) => {

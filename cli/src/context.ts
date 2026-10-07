@@ -43,17 +43,15 @@ export async function resolveSession(): Promise<SessionContext> {
     throw err
   }
 
-  const { changes } = await api<{ changes: SessionContext['change'][] }>(
+  if (!branch) return context
+  const active = await api<{
+    change: SessionContext['change']
+    workOrder: SessionContext['workOrder']
+  }>(
     'GET',
-    `/api/changes?repoId=${context.repo!.id}`,
+    `/api/changes/active?repoId=${encodeURIComponent(context.repo!.id)}&branch=${encodeURIComponent(branch)}`,
   )
-  context.change =
-    changes.find(
-      (c) => c && c.branch === branch && !['merged', 'closed', 'abandoned'].includes(c.state),
-    ) ?? null
-
-  if (context.change) {
-    context.workOrder = await api('GET', `/api/work-orders/${context.change.workOrderId}`)
-  }
+  context.change = active.change
+  context.workOrder = active.workOrder
   return context
 }

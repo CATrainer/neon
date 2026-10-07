@@ -113,10 +113,15 @@ function route(req: IncomingMessage, res: ServerResponse) {
       ? send(200, REPO)
       : send(404, { error: 'not_found', message: 'repo not found' })
   }
-  if (url.pathname === '/api/changes') {
-    return send(200, { changes: neon.claimed ? [CHANGE] : [] })
+  // Only the active-change lookup is answered: listing /api/changes saw just
+  // the 100 newest, and the hooks must not depend on it.
+  if (url.pathname === '/api/changes/active') {
+    const live =
+      neon.claimed &&
+      url.searchParams.get('repoId') === REPO.id &&
+      url.searchParams.get('branch') === BRANCH
+    return send(200, live ? { change: CHANGE, workOrder: WORK_ORDER } : { change: null, workOrder: null })
   }
-  if (url.pathname === `/api/work-orders/${WORK_ORDER.id}`) return send(200, WORK_ORDER)
   if (url.pathname === `/api/changes/${CHANGE.id}/check` && req.method === 'POST') {
     neon.checkCalls += 1
     return send(200, {
