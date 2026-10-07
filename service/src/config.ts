@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 
 /**
@@ -35,10 +36,19 @@ export type Config = {
 }
 
 /**
- * Reads `.env` from the repo root if it exists. Absent is fine: every value has
- * a working local default, so a fresh clone runs without ceremony.
+ * The repo root's `.env`, resolved from this file rather than the working
+ * directory: npm workspace scripts (`dev`, `migrate`, `seed`) run with
+ * `service/` as their cwd, and a `.env` that loads from only one of the places
+ * the service is started is a database URL silently ignored.
  */
-export function loadEnvFile(path = '.env'): void {
+export const ROOT_ENV_FILE = fileURLToPath(new URL('../../.env', import.meta.url))
+
+/**
+ * Reads `.env` from the repo root if it exists. Absent is fine: every value has
+ * a working local default, so a fresh clone runs without ceremony. Variables
+ * already set in the environment win over the file.
+ */
+export function loadEnvFile(path = ROOT_ENV_FILE): void {
   try {
     process.loadEnvFile(path)
   } catch {
