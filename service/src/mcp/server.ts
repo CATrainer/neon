@@ -126,7 +126,7 @@ export function createMcpServer(services: Services, ctx: Ctx): McpServer {
     {
       title: 'Run the definition of done',
       description:
-        'Resolves and executes the work order\'s done_when against this change. Returns pass/fail per check with the run ids. This is what the Stop hook calls: do not claim work is finished without it.',
+        'Resolves and executes the work order\'s done_when against this change. Returns pass/fail per check with the run ids. The Stop hook runs the same check through the REST API when you try to end your turn, so do not claim work is finished without it.',
       inputSchema: {
         change_id: z.string(),
         workdir: z.string().optional().describe('absolute path to the checkout, for checks that run commands'),

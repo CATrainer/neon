@@ -21,9 +21,10 @@ interface CheckReport {
  * Runs the active change's definition of done.
  *
  * Exit codes are the interface here: 0 passed, 1 failed, 2 there is nothing to
- * check, 3 Neon is unreachable. The Stop hook reads them, and a hook that
- * cannot tell "failed" from "cannot tell" is a hook that either blocks forever
- * or waves everything through.
+ * check, 3 Neon is unreachable. CI and scripts read them. (The Stop hook does
+ * not shell out to this; it calls the same check endpoint directly.) A caller
+ * that cannot tell "failed" from "cannot tell" either blocks forever or waves
+ * everything through.
  */
 export async function check(args: string[]): Promise<void> {
   const asJson = args.includes('--json')

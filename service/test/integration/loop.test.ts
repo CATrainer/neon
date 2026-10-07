@@ -195,6 +195,24 @@ describe('the loop, for code work', () => {
     )
     expect(attach.status).toBe(400)
     expect(attach.body.message).toMatch(/not citable/)
+    // The refusal names what is missing, so the fix is obvious.
+    expect(attach.body.message).toMatch(/no artifact_version; no config_commit/)
+
+    // Pinned to a commit but not to an artifact: only the missing pin is named.
+    const partial = await call<{ id: string }>(h.app, 'POST', '/api/runs', {
+      checkName: 'noop',
+      repoId,
+      result: 'pass',
+      pins: { configCommit: 'abc1234' },
+    })
+    const again = await call<{ message: string; detail: { gaps: string[] } }>(
+      h.app,
+      'POST',
+      `/api/decisions/${decision.body.id}/evidence`,
+      { runId: partial.body.id },
+    )
+    expect(again.status).toBe(400)
+    expect(again.body.detail.gaps).toEqual(['no artifact_version'])
   })
 
   it('finishes, and the work order moves to review', async () => {

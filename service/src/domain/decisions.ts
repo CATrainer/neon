@@ -1,7 +1,13 @@
-import { newId, type DecisionPosition, type DecisionState, type RejectedAlternative } from '@neon/core'
+import {
+  citabilityGaps,
+  newId,
+  type DecisionPosition,
+  type DecisionState,
+  type RejectedAlternative,
+} from '@neon/core'
 import { desc, eq, sql } from 'drizzle-orm'
 import type { Db } from '../db/client.js'
-import { decisionEvidence, decisions, runs } from '../db/schema.js'
+import { checks, decisionEvidence, decisions, runs } from '../db/schema.js'
 import type { Ctx } from './ctx.js'
 import { recordEvent } from './events.js'
 import { invalid, notFound } from './errors.js'
@@ -99,16 +105,27 @@ export async function attachEvidence(
   runId: string,
 ): Promise<void> {
   const [run] = await ctx.db
-    .select({ id: runs.id, citable: runs.citable })
+    .select({
+      id: runs.id,
+      citable: runs.citable,
+      artifactVersion: runs.artifactVersion,
+      configCommit: runs.configCommit,
+      fixtureVersion: runs.fixtureVersion,
+      paramsHash: runs.paramsHash,
+      checkKind: checks.kind,
+      requiresFixture: checks.requiresFixture,
+    })
     .from(runs)
+    .innerJoin(checks, eq(checks.id, runs.checkId))
     .where(eq(runs.id, runId))
     .limit(1)
   if (!run) throw notFound('run', runId)
 
   if (!run.citable) {
+    const gaps = citabilityGaps(run)
     throw invalid(
-      `run ${runId} is not citable and cannot be evidence: it is missing the version pins that would let anyone reproduce it`,
-      { runId },
+      `run ${runId} is not citable and cannot be evidence: ${gaps.join('; ')}. Record those pins when the run is made — they cannot be added afterwards.`,
+      { runId, gaps },
     )
   }
 
