@@ -39,7 +39,26 @@ const DAY = 24 * 60 * 60 * 1000
 export interface SeedOptions {
   /** Wipe first. The default: a fixture that accumulates is not a fixture. */
   reset?: boolean
+  /** Seed a database that has been used for real. Off by default; see
+   *  `assertUnused`. */
+  force?: boolean
   now?: Date
+}
+
+/**
+ * Refuses to seed a database that has been used. The fixture writes no events
+ * and every real domain mutation writes one, so any event at all means someone
+ * did real work here — and seeding would either wipe it or mix fictional
+ * people and repos into it. Both are worse than a refusal.
+ */
+export async function assertUnused(db: Db): Promise<void> {
+  const result = await db.execute<{ count: string }>(sql`SELECT count(*) AS count FROM ${events}`)
+  const count = Number(result.rows[0]?.count ?? 0)
+  if (count > 0) {
+    throw new Error(
+      `refusing to seed: this database has ${count} recorded event(s), so it has been used rather than only seeded. Seeding would wipe it or mix fictional data into it. Point DATABASE_URL at a demo database, or pass --force if this one really is scratch.`,
+    )
+  }
 }
 
 export async function seed(db: Db, options: SeedOptions = {}) {
@@ -47,6 +66,7 @@ export async function seed(db: Db, options: SeedOptions = {}) {
   const ago = (days: number) => new Date(now.getTime() - days * DAY)
   const inDays = (days: number) => new Date(now.getTime() + days * DAY)
 
+  if (!options.force) await assertUnused(db)
   if (options.reset !== false) await reset(db)
 
   // -- People ---------------------------------------------------------------
