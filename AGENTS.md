@@ -42,7 +42,9 @@ automatic mutations.** Nothing Neon generates is ever auto-committed.
 | `cli/`           | `neon` — thin wrapper on the API, for CI and the plugin    |
 | `plugin/`        | Skills, hooks, subagents, MCP registration                 |
 | `infra/`         | docker-compose, provisioner stacks                         |
-| `knowledge/`     | Decision records as markdown, until the service holds them |
+| `knowledge/`     | Decision records as markdown; `neon import` loads them     |
+| `openspec/`      | One `proposal.md` per work order, scaffolded by start      |
+| `docs/`          | The ChatGPT export prompt and the how-to guide             |
 | `ui/`            | Filament design prototype — not wired up, do not touch     |
 
 `ui/` is intentionally outside the npm workspace: it has its own lockfile and
@@ -73,8 +75,13 @@ npm run typecheck
 ```
 
 The CLI runs from the repo without installing: `node cli/bin/neon.js <command>`.
-`neon capture`, `neon inbox`, `neon status`, `neon check`, `neon promote`,
-`neon rules`, `neon reconcile`, `neon repo register`, `neon checks sync`.
+`neon capture`, `neon inbox`, `neon import`, `neon status`, `neon check`,
+`neon finish`, `neon promote`, `neon rules`, `neon reconcile`,
+`neon repo register`, `neon checks sync`, `neon run record`.
+
+`npm run seed` refuses a database that has been used (it holds events); real
+use lives in its own database (`neon_real` on this machine, via `.env`).
+`neon finish --override` is for a person at a terminal, never for an agent.
 
 ## Recording decisions
 
