@@ -26,7 +26,7 @@ else.
 | `/neon:promote`    | Draft a work order from an idea; a human confirms it.             |
 | `/neon:start`      | Claim work, scaffold its record, load the context pack.           |
 | `/neon:check`      | Run the definition of done and read the result honestly.          |
-| `/neon:finish`     | Sync the record, record completion, draft the PR and decisions.   |
+| `/neon:finish`     | Check, optional fresh-context review, record completion, drafts.  |
 | `/neon:reconcile`  | Draft what should have existed for work done outside Neon.        |
 
 All of them work for both kinds of work order. `/neon:start` on an `inquiry`
