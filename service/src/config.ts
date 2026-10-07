@@ -8,6 +8,10 @@ import { z } from 'zod'
  */
 const schema = z.object({
   DATABASE_URL: z.string().default('postgres://neon:neon@localhost:5433/neon'),
+  /** Loopback by default. There is no authentication yet and the command
+   *  check adapter runs shell commands, so listening on a network interface is
+   *  something to opt into, never something to inherit. */
+  NEON_HOST: z.string().default('127.0.0.1'),
   NEON_PORT: z.coerce.number().default(4000),
   NEON_LOG_LEVEL: z.string().default('info'),
 
@@ -26,6 +30,7 @@ const schema = z.object({
 
 export type Config = {
   databaseUrl: string
+  host: string
   port: number
   logLevel: string
   authMode: 'local' | 'github'
@@ -56,10 +61,16 @@ export function loadEnvFile(path = ROOT_ENV_FILE): void {
   }
 }
 
+/** Whether a listen address is reachable only from this machine. */
+export function isLoopback(host: string): boolean {
+  return host === 'localhost' || host === '::1' || /^127\.\d+\.\d+\.\d+$/.test(host)
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = schema.parse(env)
   return {
     databaseUrl: parsed.DATABASE_URL,
+    host: parsed.NEON_HOST,
     port: parsed.NEON_PORT,
     logLevel: parsed.NEON_LOG_LEVEL,
     authMode: parsed.NEON_AUTH_MODE,

@@ -8,8 +8,10 @@ services:
       POSTGRES_PASSWORD: neon
       POSTGRES_DB: neon
     # 5433 on the host: a local Postgres 17 install already owns 5432.
+    # Loopback only: the password is "neon", and a bare '5433:5432' publishes
+    # it on every network interface.
     ports:
-      - '5433:5432'
+      - '127.0.0.1:5433:5432'
     volumes:
       - neon-pgdata:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro

@@ -1,5 +1,5 @@
 import { createLocalAuthProvider } from './auth/provider.js'
-import { loadConfig, loadEnvFile } from './config.js'
+import { isLoopback, loadConfig, loadEnvFile } from './config.js'
 import { createDb } from './db/client.js'
 import { createStubGitHubProvider } from './github/provider.js'
 import { buildApp } from './http/app.js'
@@ -26,4 +26,9 @@ const shutdown = async () => {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-await app.listen({ port: config.port, host: '0.0.0.0' })
+if (!isLoopback(config.host)) {
+  app.log.warn(
+    `listening on ${config.host}: this service has no authentication and runs repo-declared shell commands, so anyone who can reach this address can do both`,
+  )
+}
+await app.listen({ port: config.port, host: config.host })

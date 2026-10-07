@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { loadConfig, loadEnvFile, ROOT_ENV_FILE } from './config.js'
+import { isLoopback, loadConfig, loadEnvFile, ROOT_ENV_FILE } from './config.js'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -26,6 +26,21 @@ describe('configuration', () => {
     process.env.NEON_CONFIG_TEST_VAR = 'from-shell'
     loadEnvFile(file)
     expect(process.env.NEON_CONFIG_TEST_VAR).toBe('from-shell')
+  })
+
+  it('listens on loopback unless told otherwise', () => {
+    // No authentication and a shell-running check adapter: exposure is opt-in.
+    expect(loadConfig({}).host).toBe('127.0.0.1')
+    expect(loadConfig({ NEON_HOST: '0.0.0.0' }).host).toBe('0.0.0.0')
+  })
+
+  it('knows which listen addresses stay on this machine', () => {
+    expect(isLoopback('127.0.0.1')).toBe(true)
+    expect(isLoopback('localhost')).toBe(true)
+    expect(isLoopback('::1')).toBe(true)
+    expect(isLoopback('0.0.0.0')).toBe(false)
+    expect(isLoopback('::')).toBe(false)
+    expect(isLoopback('192.168.1.20')).toBe(false)
   })
 
   it('treats a missing file as nothing to load', () => {
