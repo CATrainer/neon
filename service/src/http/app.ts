@@ -12,6 +12,7 @@ import { registerDecisionRoutes } from './routes/decisions.js'
 import { registerSearchRoutes } from './routes/search.js'
 import { registerContextRoutes } from './routes/context.js'
 import { registerRuleRoutes } from './routes/rules.js'
+import { registerImportRoutes } from './routes/import.js'
 import { registerMcpRoutes } from '../mcp/route.js'
 
 declare module 'fastify' {
@@ -79,6 +80,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   await registerSearchRoutes(app, services)
   await registerContextRoutes(app, services)
   await registerRuleRoutes(app, services)
+  await registerImportRoutes(app, services)
   await registerMcpRoutes(app, services)
 
   return app

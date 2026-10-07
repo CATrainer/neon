@@ -28,6 +28,9 @@ export interface CreateDecisionInput {
    *  the text: the record lives in the knowledge repo. */
   recordRef?: string | null
   recordContentHash?: string | null
+  /** When it was decided, if that was before it reached Neon: an imported
+   *  record keeps its own date. Defaults to now. */
+  decidedAt?: Date | null
   id?: string
   key?: string
 }
@@ -70,6 +73,7 @@ export async function createDecision(ctx: Ctx, input: CreateDecisionInput): Prom
     workOrderIds: input.workOrderIds ?? [],
     recordRef: input.recordRef ?? null,
     recordContentHash: input.recordContentHash ?? null,
+    ...(input.decidedAt ? { decidedAt: input.decidedAt } : {}),
     searchText: searchTextOf({ ...input, title }),
   }
 

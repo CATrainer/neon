@@ -2,6 +2,7 @@ import { ApiError } from './api.js'
 import { capture } from './commands/capture.js'
 import { check } from './commands/check.js'
 import { finish } from './commands/finish.js'
+import { importFile } from './commands/import.js'
 import { inbox } from './commands/inbox.js'
 import { promote } from './commands/promote.js'
 import { reconcile } from './commands/reconcile.js'
@@ -21,6 +22,8 @@ const USAGE = `neon — engineering platform CLI
 
   neon capture "<text>"        file an idea; returns close matches and prior rejections
   neon inbox [--all]           open ideas, oldest first
+  neon import <file.md>        ideas and decisions from markdown (e.g. a ChatGPT export);
+              [--dry-run]      decisions arrive proposed unless --as-recorded
   neon promote <id> --file f   turn an idea into a work order from a drafted file
   neon status                  what this checkout is working on
   neon check [--json]          run the active change's done_when; exit 1 if it fails
@@ -45,6 +48,9 @@ try {
       break
     case 'inbox':
       await inbox(rest)
+      break
+    case 'import':
+      await importFile(rest)
       break
     case 'promote':
       await promote(rest)
