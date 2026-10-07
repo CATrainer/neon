@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
@@ -393,5 +393,46 @@ describe('PostToolUse', () => {
     expect(result.code).toBe(0)
     expect(readFileSync(join(root, 'formatted.txt'), 'utf8')).toBe('src/a.ts')
     expect(result.stderr).toMatch(/lint: 1 problem in src\/a\.ts/)
+  })
+})
+
+describe('PostToolUse and hostile file names', () => {
+  it('does not let a file name smuggle a second command into the formatter call', async () => {
+    const root = makeRepo()
+    writeFileSync(
+      join(root, 'fmt.mjs'),
+      "import { writeFileSync } from 'node:fs'\nwriteFileSync('formatted.txt', process.argv[2] ?? '')\n",
+    )
+    writeFileSync(join(root, 'pwn.mjs'), "import { writeFileSync } from 'node:fs'\nwriteFileSync('pwned.txt', 'x')\n")
+    writeFileSync(join(root, 'neon.yaml'), ['format:', '  command: node fmt.mjs', ''].join('\n'))
+
+    // `&` separates commands in both sh and cmd.exe; the quote closes the one
+    // the hook wraps the path in.
+    const hostile = join(root, 'src', 'a" & node pwn.mjs & ".ts')
+    const result = await runHook('post-tool-use', {
+      tool_name: 'Write',
+      cwd: root,
+      tool_input: { file_path: hostile },
+    })
+
+    expect(result.code).toBe(0)
+    expect(existsSync(join(root, 'pwned.txt'))).toBe(false)
+    expect(existsSync(join(root, 'formatted.txt'))).toBe(false)
+    expect(result.stderr).toMatch(/not formatting/)
+  })
+
+  it('still formats ordinary names, spaces included', async () => {
+    const root = makeRepo()
+    writeFileSync(
+      join(root, 'fmt.mjs'),
+      "import { writeFileSync } from 'node:fs'\nwriteFileSync('formatted.txt', process.argv[2] ?? '')\n",
+    )
+    writeFileSync(join(root, 'neon.yaml'), ['format:', '  command: node fmt.mjs', ''].join('\n'))
+    await runHook('post-tool-use', {
+      tool_name: 'Edit',
+      cwd: root,
+      tool_input: { file_path: join(root, 'docs', 'release notes (v2).md') },
+    })
+    expect(readFileSync(join(root, 'formatted.txt'), 'utf8')).toBe('docs/release notes (v2).md')
   })
 })

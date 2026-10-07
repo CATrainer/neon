@@ -14,6 +14,8 @@ import { git, readInput, repoConfig } from './lib.mjs'
  * Neither blocks: a failing lint is information the agent should have, not a
  * reason to lose the edit. The definition of done is where lint is enforced.
  */
+const SAFE_PATH = /^[\w./ @+,=~()[\]{}-]+$/
+
 const input = await readInput()
 const path = input.tool_input?.file_path ?? input.tool_input?.notebook_path
 if (!path) process.exit(0)
@@ -26,7 +28,15 @@ const relativePath = relative(root, path).replace(/\\/g, '/')
 const output = []
 
 if (config.format?.command) {
-  output.push(run(`${config.format.command} "${relativePath}"`, root))
+  // The formatter is a shell command, so the path is pasted into a shell
+  // string. Agents choose file names: a quote and an `&` in one would run
+  // whatever follows. Only characters inert inside double quotes in both sh and
+  // cmd.exe get through; anything else is left unformatted, and said so.
+  if (SAFE_PATH.test(relativePath)) {
+    output.push(run(`${config.format.command} "${relativePath}"`, root))
+  } else {
+    output.push(`neon: not formatting ${JSON.stringify(relativePath)}: its name has characters a shell would interpret`)
+  }
 }
 if (config.lint?.command) {
   output.push(run(config.lint.command, root))
