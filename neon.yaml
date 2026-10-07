@@ -1,6 +1,9 @@
 # Repo configuration for the Neon plugin's hooks.
 
 protected_paths:
+  # Neon's own state. Also protected by the hook in every repo, listed here so
+  # the protection is visible where people look for it.
+  - ".neon/**"
   - "infra/**"
   - ".github/workflows/**"
   - "service/src/db/migrations/**"

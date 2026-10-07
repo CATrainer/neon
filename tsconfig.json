@@ -6,5 +6,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["packages/*/src/**/*.ts", "service/src/**/*.ts", "cli/src/**/*.ts", "vitest.config.ts"]
+  "include": ["packages/*/src/**/*.ts", "service/src/**/*.ts", "cli/src/**/*.ts", "plugin/**/*.test.ts", "vitest.config.ts"]
 }

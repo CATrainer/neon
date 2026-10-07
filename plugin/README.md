@@ -41,14 +41,20 @@ commands, same flow.
   down on `stop_hook_active`, after three consecutive blocks, and whenever it
   cannot tell what is going on.
 - **PreToolUse** on Write/Edit — denies writes to `protected_paths` from
-  `neon.yaml`.
+  `neon.yaml`, and in every repo to `.neon/**` and Claude Code's settings
+  files. On Bash — denies commands that name `.neon/` or a settings file.
 - **PostToolUse** on Write/Edit — runs the repo's formatter and linter. Never
   blocks; lint is enforced by the definition of done, not by a hook.
 - **SessionStart** — one line if this branch has claimed work.
 
-Override the Stop hook deliberately with `NEON_SKIP_CHECKS=1` or a
-`.neon/skip-checks` file. It is meant to be a decision someone makes, not one
-the agent can make for itself.
+Override the Stop hook deliberately by launching Claude Code with
+`NEON_SKIP_CHECKS=1` in its environment (`NEON_SKIP_CHECKS=1 claude`). That is
+the only override: the agent's shell commands run in child processes and cannot
+change the environment the hooks inherit, and the files that could (Claude
+Code's settings) are protected. It is meant to be a decision someone makes, not
+one the agent can make for itself — see `knowledge/decisions/NEON-D-009`. It is
+a guardrail against an agent talking itself past the gate, not a sandbox
+against one working to escape it.
 
 ## Rules generated from decisions
 

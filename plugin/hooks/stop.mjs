@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { api, git, readInput, session } from './lib.mjs'
@@ -12,7 +12,9 @@ import { api, git, readInput, session } from './lib.mjs'
  *   - it never loops: `stop_hook_active` means we already blocked once this
  *     turn, and a ceiling stops it blocking forever on work it cannot fix;
  *   - it is overridable, explicitly, by the person — not by the agent talking
- *     itself out of it;
+ *     itself out of it. The only override is NEON_SKIP_CHECKS=1 in the
+ *     environment Claude Code was launched with: the agent's shell commands
+ *     run in child processes and cannot change it (NEON-D-009);
  *   - when it cannot tell (no change, no repo, Neon unreachable) it does
  *     nothing at all. A gate that fires when confused gets removed.
  */
@@ -25,7 +27,7 @@ const cwd = input.cwd ?? process.cwd()
 if (input.stop_hook_active) process.exit(0)
 
 if (process.env.NEON_SKIP_CHECKS === '1') {
-  console.error('neon: checks skipped (NEON_SKIP_CHECKS=1)')
+  console.error('neon: checks skipped (NEON_SKIP_CHECKS=1 was set when this session was launched)')
   process.exit(0)
 }
 
@@ -38,12 +40,6 @@ try {
 }
 
 if (!context.repo || !context.change) process.exit(0)
-
-const skipFile = join(context.root, '.neon', 'skip-checks')
-if (existsSync(skipFile)) {
-  console.error(`neon: checks skipped (${skipFile} exists)`)
-  process.exit(0)
-}
 
 let report
 try {

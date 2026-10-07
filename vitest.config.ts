@@ -14,6 +14,8 @@ export default defineConfig({
       'packages/*/src/**/*.test.ts',
       'service/src/**/*.test.ts',
       'cli/src/**/*.test.ts',
+      // The plugin's hooks, run as Claude Code runs them: a process, JSON on stdin.
+      'plugin/**/*.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', 'ui/**'],
     environment: 'node',

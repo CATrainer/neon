@@ -1,7 +1,7 @@
 ---
 description: Turn an idea into a draft work order, with the structure it now has to earn
 argument-hint: <idea-id>
-allowed-tools: mcp__neon__neon_search, Bash, Read, Write
+allowed-tools: mcp__neon__neon_search, Bash, Read
 ---
 
 # Promote $ARGUMENTS
@@ -11,7 +11,7 @@ to.
 
 ## Draft, do not decide
 
-Write `.neon/promote-$ARGUMENTS.json` containing your draft:
+Draft the work order as JSON, in the conversation:
 
 ```json
 {
@@ -43,11 +43,17 @@ Write `.neon/promote-$ARGUMENTS.json` containing your draft:
 
 ## Then hand it over
 
-Show the draft and ask the person to confirm or edit it. Only then run:
+Show the draft and ask the person to confirm or edit it. Only then run it,
+with the confirmed draft on stdin:
 
 ```
-neon promote <idea-id> --file .neon/promote-<idea-id>.json
+neon promote <idea-id> <<'EOF'
+{ ...the confirmed draft... }
+EOF
 ```
+
+Do not write the draft into `.neon/`: that directory is protected from agents
+(NEON-D-009), and the conversation is where the person reviews it anyway.
 
 Never promote without that confirmation. Promotion is the point where a
 half-formed thought becomes something the team has agreed is worth doing, and

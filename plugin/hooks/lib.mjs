@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 /**
  * Shared helpers for the hooks.
@@ -131,6 +132,42 @@ export function parseSimpleYaml(text) {
 
 function unquote(value) {
   return value.trim().replace(/^["']|["']$/g, '')
+}
+
+/**
+ * Paths protected in every repo, whatever its neon.yaml says. `.neon/` is
+ * Neon's own per-checkout state, and Claude Code's settings files can set
+ * environment variables or disable hooks outright — the agent being held to a
+ * bar must not be able to edit the things that decide whether the bar applies.
+ */
+export const BUILT_IN_PROTECTED = ['.neon/**', '.claude/settings.json', '.claude/settings.local.json']
+
+/** The user-level settings files, which live outside any repo. */
+export function isUserSettingsFile(path, home = homedir()) {
+  const target = normaliseForCompare(resolve(path))
+  return ['settings.json', 'settings.local.json'].some(
+    (name) => normaliseForCompare(join(home, '.claude', name)) === target,
+  )
+}
+
+function normaliseForCompare(path) {
+  const forward = path.replace(/\\/g, '/')
+  return process.platform === 'win32' ? forward.toLowerCase() : forward
+}
+
+/**
+ * Whether a shell command names a protected location, and which. Deliberately
+ * blunt: it matches any mention, reads included, because telling a write from a
+ * read in an arbitrary shell string is not something a regex can do (redirects,
+ * tee, cp, node -e, python -c, PowerShell cmdlets...), and an agent has no
+ * reason to touch these at all. It is a tripwire, not a sandbox: a command built
+ * to evade it will evade it.
+ */
+export function shellNamesProtectedPath(command) {
+  if (typeof command !== 'string' || command === '') return null
+  if (/(^|[\s"'=:(<>|;&/\\`])\.neon([/\\\s"';|&)<>`]|$)/.test(command)) return '.neon/'
+  if (/\.claude[/\\]settings(\.local)?\.json/i.test(command)) return '.claude/settings*.json'
+  return null
 }
 
 /** Glob matching good enough for path prefixes: `src/api/**`, `*.env`. */
