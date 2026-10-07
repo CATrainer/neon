@@ -7,8 +7,9 @@ allowed-tools: mcp__neon__neon_check, mcp__neon__neon_finish_work, mcp__neon__ne
 
 ## 1. Check first
 
-Call `neon_check`. If it fails, stop here and fix the work — finishing is not a
-state you can talk your way into.
+Call `neon_check` with the current HEAD sha as `config_commit`. If it fails,
+stop here and fix the work — finishing is not a state you can talk your way
+into, and `neon_finish_work` will refuse anyway.
 
 ## 2. Sync the record to what actually happened
 
@@ -22,8 +23,17 @@ state you can talk your way into.
 
 ## 3. Record completion
 
-Call `neon_finish_work` with a summary of what changed and why. It returns
-drafts: a PR body citing the runs, and a commit trailer.
+Call `neon_finish_work` with a summary of what changed and why, and the same
+`config_commit`. It runs nothing: it judges the runs `neon_check` just recorded,
+and refuses if any of them fails, is missing, or was made at another commit.
+It returns drafts: a PR body citing those runs, and a commit trailer.
+
+If it refuses, there is no way round it from here, by design. If the person
+decides the work should finish anyway — a flaky dependency, a check that is
+itself wrong — tell them it is their call and the command is theirs to run in
+a terminal: `neon finish --override "<reason>"`. Do not run it yourself; it
+asks for the work order key at an interactive prompt, and the reason is
+recorded.
 
 ## 4. Decisions
 

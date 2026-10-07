@@ -14,7 +14,7 @@ import { changes, checks, repos, runs, workOrders } from '../db/schema.js'
 import type { Ctx } from './ctx.js'
 import { recordEvent } from './events.js'
 import { DomainError, invalid, notFound } from './errors.js'
-import { resolveCheck } from './checks.js'
+import { findCheck, resolveCheck } from './checks.js'
 
 export type RunRow = typeof runs.$inferSelect
 
@@ -255,6 +255,35 @@ async function evaluateThreshold(
   paramsHash: string,
   score: number | null,
 ): Promise<{ violation: string | null; baselineRunId: string | null; delta: number | null }> {
+  let baseline: { id: string; score: number } | null = null
+  if (clause.threshold?.noRegressionVs === 'baseline' && score !== null) {
+    const [row] = await db
+      .select({ id: runs.id, score: runs.score })
+      .from(runs)
+      .where(
+        and(
+          eq(runs.checkId, checkId),
+          eq(runs.paramsHash, paramsHash),
+          eq(runs.result, 'pass'),
+          isNotNull(runs.score),
+        ),
+      )
+      .orderBy(desc(runs.startedAt))
+      .limit(1)
+    if (row?.score != null) baseline = { id: row.id, score: row.score }
+  }
+  return judgeScore(clause, score, baseline)
+}
+
+/**
+ * Whether a score meets a clause's threshold. Pure, so a run judged live and
+ * the same run judged later from the database cannot disagree.
+ */
+export function judgeScore(
+  clause: DoneWhenClause,
+  score: number | null,
+  baseline: { id: string; score: number } | null,
+): { violation: string | null; baselineRunId: string | null; delta: number | null } {
   const threshold = clause.threshold
   if (!threshold) return { violation: null, baselineRunId: null, delta: null }
 
@@ -281,35 +310,118 @@ async function evaluateThreshold(
     }
   }
 
-  if (threshold.noRegressionVs === 'baseline') {
-    const [baseline] = await db
-      .select({ id: runs.id, score: runs.score })
-      .from(runs)
-      .where(
-        and(
-          eq(runs.checkId, checkId),
-          eq(runs.paramsHash, paramsHash),
-          eq(runs.result, 'pass'),
-          isNotNull(runs.score),
-        ),
-      )
-      .orderBy(desc(runs.startedAt))
-      .limit(1)
-
-    if (baseline?.score != null) {
-      const delta = score - baseline.score
-      return {
-        violation:
-          delta < 0
-            ? `${clause.check} regressed against baseline ${baseline.id}: ${score} vs ${baseline.score}`
-            : null,
-        baselineRunId: baseline.id,
-        delta,
-      }
+  if (threshold.noRegressionVs === 'baseline' && baseline) {
+    const delta = score - baseline.score
+    return {
+      violation:
+        delta < 0
+          ? `${clause.check} regressed against baseline ${baseline.id}: ${score} vs ${baseline.score}`
+          : null,
+      baselineRunId: baseline.id,
+      delta,
     }
   }
 
   return { violation: null, baselineRunId: null, delta: null }
+}
+
+/**
+ * The verdict a change has already earned: for each `done_when` clause, the
+ * most recent run of that check, with those parameters, on this change. Nothing
+ * is executed. This is what finishing is judged on — re-running at finish time
+ * would record unpinned duplicates and cite them instead of the runs that were
+ * made against a known commit.
+ *
+ * With `atCommit`, a run recorded at any other commit is stale: it proves
+ * something about a different tree.
+ */
+export async function latestVerdict(
+  db: Db,
+  changeId: string,
+  opts: { atCommit?: string | null } = {},
+): Promise<CheckReport> {
+  const [change] = await db.select().from(changes).where(eq(changes.id, changeId)).limit(1)
+  if (!change) throw notFound('change', changeId)
+  const [workOrder] = await db
+    .select()
+    .from(workOrders)
+    .where(eq(workOrders.id, change.workOrderId))
+    .limit(1)
+  if (!workOrder) throw notFound('work order', change.workOrderId)
+
+  if (workOrder.doneWhen.length === 0) {
+    return {
+      changeId,
+      workOrderKey: workOrder.key,
+      passed: false,
+      results: [],
+      problem: `work order ${workOrder.key} has an empty done_when: there is nothing to check`,
+    }
+  }
+
+  const missing = (check: string, why: string): CheckClauseResult => ({
+    check,
+    result: 'error',
+    runId: null,
+    score: null,
+    citable: false,
+    failureSummary: why,
+    thresholdViolation: null,
+  })
+
+  const results: CheckClauseResult[] = []
+  for (const clause of workOrder.doneWhen) {
+    const check = await findCheck(db, change.repoId, clause.check)
+    if (!check) {
+      results.push(missing(clause.check, `check ${clause.check} is not registered for this repo`))
+      continue
+    }
+
+    const paramsHash = hashParams({ ...check.defaultParams, ...(clause.params ?? {}) })
+    const [run] = await db
+      .select()
+      .from(runs)
+      .where(and(eq(runs.changeId, change.id), eq(runs.checkId, check.id), eq(runs.paramsHash, paramsHash)))
+      .orderBy(desc(runs.startedAt), desc(runs.id))
+      .limit(1)
+
+    if (!run) {
+      results.push(missing(clause.check, `${clause.check} has never run on this change: run neon_check first`))
+      continue
+    }
+    if (opts.atCommit && run.configCommit !== opts.atCommit) {
+      results.push(
+        missing(
+          clause.check,
+          `${clause.check} last ran at ${run.configCommit?.slice(0, 7) ?? 'no recorded commit'}, not at ${opts.atCommit.slice(0, 7)}: run neon_check again`,
+        ),
+      )
+      continue
+    }
+
+    const baseline =
+      run.baselineRunId && run.score !== null && run.delta !== null
+        ? { id: run.baselineRunId, score: run.score - run.delta }
+        : null
+    const { violation } = judgeScore(clause, run.score, baseline)
+
+    results.push({
+      check: clause.check,
+      result: run.result,
+      runId: run.id,
+      score: run.score,
+      citable: run.citable,
+      failureSummary: run.result === 'pass' ? null : run.failureSummary,
+      thresholdViolation: violation,
+    })
+  }
+
+  return {
+    changeId,
+    workOrderKey: workOrder.key,
+    passed: results.every((r) => r.result === 'pass' && r.thresholdViolation === null),
+    results,
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 import { ApiError } from './api.js'
 import { capture } from './commands/capture.js'
 import { check } from './commands/check.js'
+import { finish } from './commands/finish.js'
 import { inbox } from './commands/inbox.js'
 import { promote } from './commands/promote.js'
 import { reconcile } from './commands/reconcile.js'
@@ -23,6 +24,8 @@ const USAGE = `neon — engineering platform CLI
   neon promote <id> --file f   turn an idea into a work order from a drafted file
   neon status                  what this checkout is working on
   neon check [--json]          run the active change's done_when; exit 1 if it fails
+  neon finish [--summary s]    record completion, judged on the latest runs; refuses
+              [--override r]   while they fail. --override is for a person at a terminal
   neon run record <check> ...  record a run that happened elsewhere (CI)
   neon reconcile [--since ref] draft the records that should have existed
   neon repo register [--kind]  register this repo from its git remote
@@ -51,6 +54,9 @@ try {
       break
     case 'check':
       await check(rest)
+      break
+    case 'finish':
+      await finish(rest)
       break
     case 'run':
       await recordRun(rest)

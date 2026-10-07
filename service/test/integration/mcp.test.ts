@@ -139,14 +139,60 @@ describe('the MCP surface', () => {
     })
     expect(checked.passed).toBe(true)
 
+    const runsBefore = await call<{ runs: { id: string }[] }>(
+      h.app,
+      'GET',
+      `/api/runs?changeId=${started.changeId}`,
+    )
+
     const finished = await callTool<{
       drafts: { prBody: string; commitTrailer: string }
     }>('neon_finish_work', {
       change_id: started.changeId,
       summary: 'Renamed the metric and updated the dashboard.',
+      config_commit: 'abc1234',
     })
     expect(finished.drafts.commitTrailer).toBe(`Neon-Work-Order: ${workOrder.body.key}`)
     expect(finished.drafts.prBody).toContain('Evidence:')
+
+    // Finishing judged the run neon_check made — pinned to abc1234 — rather
+    // than re-running unpinned and citing that instead.
+    const runsAfter = await call<{ runs: unknown[] }>(h.app, 'GET', `/api/runs?changeId=${started.changeId}`)
+    expect(runsAfter.body.runs).toHaveLength(runsBefore.body.runs.length)
+    expect(finished.drafts.prBody).toContain(runsBefore.body.runs[0]!.id)
+  })
+
+  it('refuses to finish over failing checks, and offers no way round it', async () => {
+    const { tools } = await client.listTools()
+    const finishTool = tools.find((t) => t.name === 'neon_finish_work')!
+    expect(Object.keys(finishTool.inputSchema.properties ?? {})).not.toContain('override')
+
+    const repos = await call<{ repos: { id: string; remoteUrl: string }[] }>(h.app, 'GET', '/api/repos')
+    const atlas = repos.body.repos.find((r) => r.remoteUrl === REMOTE)!
+    const workOrder = await call<{ key: string }>(h.app, 'POST', '/api/work-orders', {
+      kind: 'code',
+      title: 'Retire the legacy exporter',
+      intent: 'Two exporters disagree and nobody knows which is right.',
+      acceptanceCriteria: ['one exporter remains'],
+      doneWhen: [{ check: 'noop' }],
+      state: 'ready',
+      repoId: atlas.id,
+    })
+    const started = await callTool<{ changeId: string }>('neon_start_work', {
+      work_order_key: workOrder.body.key,
+      repo: REMOTE,
+    })
+    await call(h.app, 'POST', '/api/runs', {
+      checkName: 'noop',
+      repoId: atlas.id,
+      changeId: started.changeId,
+      result: 'fail',
+      failureSummary: 'exporter parity test failed',
+    })
+
+    await expect(
+      callTool('neon_finish_work', { change_id: started.changeId, summary: 'Removed it.' }),
+    ).rejects.toThrow(/cannot finish while its definition of done fails/)
   })
 
   it('refuses to claim a draft, and says why', async () => {

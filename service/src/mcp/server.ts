@@ -150,26 +150,32 @@ export function createMcpServer(services: Services, ctx: Ctx): McpServer {
       ),
   )
 
+  // No override parameter, on purpose: finishing over failing checks is a
+  // person's decision, made with `neon finish --override` in a terminal.
   server.registerTool(
     'neon_finish_work',
     {
       title: 'Record completion and draft the artifacts',
       description:
-        'Records that the work is finished and returns drafts for a human to edit: what the spec delta should say, which decisions are worth recording, and a PR body citing the runs. It does not write to the repo.',
+        'Records that the work is finished, judged on the latest runs neon_check recorded for this change — it runs nothing itself. Refuses while any done_when check\'s latest run fails or is missing, or (given config_commit) was made at a different commit: run neon_check and fix the work first. There is no override here; only a person can finish over failing checks, from the CLI. On success returns drafts for a human to edit: a PR body citing the runs, a commit trailer, and a prompt about decisions worth recording. It does not write to the repo.',
       inputSchema: {
         change_id: z.string(),
         summary: z.string().describe('what changed and why, in a few sentences'),
         pr_url: z.string().optional(),
+        config_commit: z
+          .string()
+          .optional()
+          .describe('HEAD sha; runs recorded at any other commit are treated as stale'),
       },
     },
-    async ({ change_id, summary, pr_url }) =>
+    async ({ change_id, summary, pr_url, config_commit }) =>
       guard(async () => {
-        const change = await finishWork(ctx, {
+        const { change, verdict: report } = await finishWork(ctx, {
           changeId: change_id,
           summary,
           prUrl: pr_url ?? null,
+          atCommit: config_commit ?? null,
         })
-        const report = await runDoneWhen(ctx, { changeId: change_id })
         return ok({
           change: { id: change.id, state: change.state, branch: change.branch },
           drafts: {

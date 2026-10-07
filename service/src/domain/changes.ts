@@ -6,6 +6,7 @@ import type { Ctx } from './ctx.js'
 import { recordEvent } from './events.js'
 import { conflict, invalid, notFound } from './errors.js'
 import { getRepo } from './repos.js'
+import { latestVerdict, type CheckReport } from './runs.js'
 import { getWorkOrderByKey, type WorkOrderRow } from './workOrders.js'
 
 export type ChangeRow = typeof changes.$inferSelect
@@ -116,17 +117,44 @@ export interface FinishWorkInput {
   summary: string
   prUrl?: string | null
   specContentHash?: string | null
+  /** The commit being finished. Runs recorded at any other commit are stale. */
+  atCommit?: string | null
+  /** A person finishing over a failing definition of done, and why. Offered by
+   *  the CLI behind an interactive confirmation, never on the MCP surface. */
+  override?: { reason: string } | null
+}
+
+export interface FinishWorkResult {
+  change: ChangeRow
+  /** What the finish was judged on: the latest runs, not a fresh execution. */
+  verdict: CheckReport
+  overridden: boolean
 }
 
 /**
  * Records completion. It does not decide that the work is done — the checks do
- * that — and it does not write anything to the repo. It returns what a human
- * should review and edit.
+ * that — so it refuses while the latest runs of the definition of done fail,
+ * unless a person overrides with a reason. It runs nothing itself, and writes
+ * nothing to the repo.
  */
-export async function finishWork(ctx: Ctx, input: FinishWorkInput): Promise<ChangeRow> {
+export async function finishWork(ctx: Ctx, input: FinishWorkInput): Promise<FinishWorkResult> {
   const change = await getChange(ctx.db, input.changeId)
+  const verdict = await latestVerdict(ctx.db, change.id, { atCommit: input.atCommit ?? null })
+  const reason = input.override?.reason.trim() ?? ''
 
-  return ctx.db.transaction(async (tx) => {
+  if (!verdict.passed && reason === '') {
+    const failing = verdict.problem
+      ? [verdict.problem]
+      : verdict.results
+          .filter((r) => r.result !== 'pass' || r.thresholdViolation)
+          .map((r) => `${r.check}: ${r.thresholdViolation ?? r.failureSummary ?? r.result}`)
+    throw conflict(
+      `${verdict.workOrderKey} cannot finish while its definition of done fails — ${failing.join('; ')}. Fix the work and run neon_check again. Only a person can finish over failing checks, with \`neon finish --override "<reason>"\` in a terminal.`,
+      { verdict },
+    )
+  }
+
+  const updated = await ctx.db.transaction(async (tx) => {
     const [updated] = await tx
       .update(changes)
       .set({
@@ -149,10 +177,22 @@ export async function finishWork(ctx: Ctx, input: FinishWorkInput): Promise<Chan
       subjectId: change.id,
       actorId: ctx.actorId,
       source: ctx.source ?? 'api',
-      payload: { summary: input.summary, prUrl: input.prUrl ?? null },
+      payload: {
+        summary: input.summary,
+        prUrl: input.prUrl ?? null,
+        // An override is the thing an auditor will look for, so it travels
+        // with the verdict it overrode.
+        override: verdict.passed ? null : { reason },
+        verdict: {
+          passed: verdict.passed,
+          results: verdict.results.map((r) => ({ check: r.check, result: r.result, runId: r.runId })),
+        },
+      },
     })
     return updated!
   })
+
+  return { change: updated, verdict, overridden: !verdict.passed }
 }
 
 export async function abandonChange(ctx: Ctx, id: string, reason?: string): Promise<ChangeRow> {

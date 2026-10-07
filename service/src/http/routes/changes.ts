@@ -20,6 +20,11 @@ const finishBody = z.object({
   summary: z.string().default(''),
   prUrl: z.string().nullable().optional(),
   specContentHash: z.string().nullable().optional(),
+  atCommit: z.string().nullable().optional(),
+  /** Sent by `neon finish --override` after a person types the work order key.
+   *  The API is unauthenticated, so this is recorded rather than trusted: the
+   *  reason and the source travel on the event. */
+  override: z.object({ reason: z.string().min(1) }).nullable().optional(),
 })
 
 const checkBody = z.object({
