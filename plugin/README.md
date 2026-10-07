@@ -5,12 +5,25 @@ repo: the MCP registration, the commands, the hooks, and a reviewer.
 
 ## Install
 
-From this repo:
+The repo root is a plugin marketplace (`.claude-plugin/marketplace.json`)
+listing this plugin. In Claude Code:
 
 ```
-/plugin marketplace add <path-or-remote>/neon
-/plugin install neon
+/plugin marketplace add ./path/to/neon
+/plugin install neon@neon
 ```
+
+or from a shell: `claude plugin marketplace add ./path/to/neon` then
+`claude plugin install neon@neon` (user scope by default).
+
+For working on the plugin itself, load it for one session without installing:
+`claude --plugin-dir ./plugin`. Check the manifests with
+`claude plugin validate ./plugin` and `claude plugin validate .`.
+
+`plugin.json` deliberately names no component paths: commands, agents, hooks
+and `.mcp.json` sit at the standard locations and are discovered from there.
+(Naming `agents` as a directory fails validation; naming `commands` or
+`agents` at all replaces the default scan.)
 
 Point it at a service with `NEON_URL` (defaults to `http://localhost:4000`).
 Inside this repo, a project-scoped `.mcp.json` points at localhost; at user

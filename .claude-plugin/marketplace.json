@@ -1,0 +1,14 @@
+{
+  "name": "neon",
+  "owner": {
+    "name": "CATrainer"
+  },
+  "description": "The Neon plugin, from this repository.",
+  "plugins": [
+    {
+      "name": "neon",
+      "source": "./plugin",
+      "description": "Bounded context, executable definitions of done, and a front door for ideas, for teams where most code is written by agents."
+    }
+  ]
+}
