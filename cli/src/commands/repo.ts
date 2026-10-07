@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { api } from '../api.js'
 import { valueOf } from './check.js'
-import { currentBranch, remoteUrl, repoRoot } from '../git.js'
+import { currentBranch, originDefaultBranch, remoteUrl, repoRoot } from '../git.js'
 
 /** Registration is thin on purpose: a remote, a kind, done. */
 export async function registerRepo(args: string[]): Promise<void> {
   if (args[0] !== 'register') {
-    console.error('neon repo register [--kind code|knowledge|config] [--prefix ABC]')
+    console.error('neon repo register [--kind code|knowledge|config] [--prefix ABC] [--default-branch main]')
     process.exitCode = 1
     return
   }
@@ -27,7 +27,10 @@ export async function registerRepo(args: string[]): Promise<void> {
       name: basename(root),
       remoteUrl: remote,
       kind: valueOf(args, '--kind') ?? 'code',
-      defaultBranch: currentBranch() ?? 'main',
+      // Not simply the current branch: registering from a feature branch would
+      // make that branch the base every reconcile diffs against.
+      defaultBranch:
+        valueOf(args, '--default-branch') ?? originDefaultBranch() ?? currentBranch() ?? 'main',
       localPath: root,
       keyPrefix: valueOf(args, '--prefix'),
     },

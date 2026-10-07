@@ -28,7 +28,7 @@ const USAGE = `neon — engineering platform CLI
               [--override r]   while they fail. --override is for a person at a terminal
   neon run record <check> ...  record a run that happened elsewhere (CI)
   neon reconcile [--since ref] draft the records that should have existed
-  neon repo register [--kind]  register this repo from its git remote
+  neon repo register [--kind]  register this repo from its git remote (default branch from origin/HEAD)
   neon checks sync [file]      sync neon.checks.yaml to the service
   neon rules [--write]         path-scoped rules from decisions; never commits
 

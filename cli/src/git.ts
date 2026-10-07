@@ -19,6 +19,13 @@ export const currentBranch = (cwd?: string) => git(['rev-parse', '--abbrev-ref',
 export const headSha = (cwd?: string) => git(['rev-parse', 'HEAD'], cwd)
 export const repoRoot = (cwd?: string) => git(['rev-parse', '--show-toplevel'], cwd)
 
+/** The remote's default branch, as recorded by clone in `origin/HEAD`. Null
+ *  when unset — a repo that was pushed rather than cloned has none. */
+export function originDefaultBranch(cwd?: string): string | null {
+  const ref = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], cwd)
+  return ref ? ref.replace(/^origin\//, '') : null
+}
+
 /** Commits in a range, with their subject and whether they carry a work order
  *  trailer. This is what reconciliation reads. */
 export interface CommitSummary {
