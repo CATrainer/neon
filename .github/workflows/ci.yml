@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: neon
+          POSTGRES_PASSWORD: neon
+          POSTGRES_DB: neon
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U neon -d neon"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://neon:neon@localhost:5433/neon
+      # Where to record the runs. Unset on forks, and every step below tolerates
+      # that: CI must not be blocked by Neon being unreachable.
+      NEON_URL: ${{ secrets.NEON_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: typecheck
+        id: typecheck
+        run: npm run typecheck
+
+      - name: unit tests
+        id: unit
+        run: npm test
+
+      - name: integration tests
+        id: integration
+        run: npm run test:integration
+
+      # The same CLI a developer uses locally, so a run recorded from CI and a
+      # run recorded from a laptop are the same kind of thing. Runs from here
+      # carry the commit, which is what makes them citable as evidence.
+      - name: record runs
+        if: always() && env.NEON_URL != ''
+        run: |
+          record() {
+            node cli/bin/neon.js run record "$1" \
+              --result "$2" \
+              --trigger ci \
+              --config-commit "${GITHUB_SHA}" \
+              --artifact-version "${GITHUB_REF_NAME}@${GITHUB_SHA::7}" || true
+          }
+          record typecheck "${{ steps.typecheck.outcome == 'success' && 'pass' || 'fail' }}"
+          record tests.unit "${{ steps.unit.outcome == 'success' && 'pass' || 'fail' }}"
+          record tests.integration "${{ steps.integration.outcome == 'success' && 'pass' || 'fail' }}"
+
+      # Merge gating comes with the GitHub App: branch protection keys off a
+      # commit status Neon posts, and posting it needs an installation token.
+      # Until then the runs are recorded and nothing is gated.

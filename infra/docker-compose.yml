@@ -1,0 +1,23 @@
+name: neon
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: neon
+      POSTGRES_PASSWORD: neon
+      POSTGRES_DB: neon
+    # 5433 on the host: a local Postgres 17 install already owns 5432.
+    ports:
+      - '5433:5432'
+    volumes:
+      - neon-pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U neon -d neon']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  neon-pgdata:

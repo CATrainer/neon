@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "neon": {
+      "type": "http",
+      "url": "${NEON_URL:-http://localhost:4000}/mcp"
+    }
+  }
+}

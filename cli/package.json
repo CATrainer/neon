@@ -1,0 +1,13 @@
+{
+  "name": "@neon/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "neon": "./bin/neon.js"
+  },
+  "dependencies": {
+    "@neon/core": "*",
+    "tsx": "^4.20.1"
+  }
+}

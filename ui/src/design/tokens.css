@@ -1,0 +1,333 @@
+@import 'tailwindcss';
+
+/*
+  Three visual directions, one token contract.
+
+  Every direction defines the same variable names, so a component written
+  against the tokens renders correctly in all three. Anything a direction
+  needs that the others do not — a texture, a glow, a rule weight — is
+  expressed as a token too, not as a one-off class in a screen.
+*/
+
+@theme {
+  --color-bg: var(--d-bg);
+  --color-bg-deep: var(--d-bg-deep);
+  --color-surface: var(--d-surface);
+  --color-surface-2: var(--d-surface-2);
+  --color-surface-3: var(--d-surface-3);
+  --color-line: var(--d-line);
+  --color-line-strong: var(--d-line-strong);
+
+  --color-ink: var(--d-ink);
+  --color-ink-2: var(--d-ink-2);
+  --color-ink-3: var(--d-ink-3);
+
+  --color-accent: var(--d-accent);
+  --color-accent-2: var(--d-accent-2);
+  --color-accent-soft: var(--d-accent-soft);
+  --color-on-accent: var(--d-on-accent);
+
+  --color-pass: var(--d-pass);
+  --color-fail: var(--d-fail);
+  --color-error: var(--d-error);
+  --color-warn: var(--d-warn);
+  --color-info: var(--d-info);
+  --color-contested: var(--d-contested);
+  --color-idle: var(--d-idle);
+
+  --font-display: var(--d-font-display);
+  --font-sans: var(--d-font-sans);
+  --font-mono: var(--d-font-mono);
+
+  --radius-card: var(--d-radius-card);
+  --radius-chip: var(--d-radius-chip);
+}
+
+/* ── Direction A — Instrument ────────────────────────────────────────────
+   No ornament. Hairlines, aligned columns, monospace data, one signal
+   colour. Reads like a well-made terminal: everything that is coloured is
+   coloured because it is a state. */
+:root[data-direction='instrument'] {
+  --d-bg: #06080a;
+  --d-bg-deep: #030405;
+  --d-surface: #0a0d10;
+  --d-surface-2: #0e1216;
+  --d-surface-3: #141a1f;
+  --d-line: #1b2128;
+  --d-line-strong: #2a333c;
+
+  --d-ink: #dfe6ec;
+  --d-ink-2: #93a1ad;
+  --d-ink-3: #5d6b77;
+
+  --d-accent: #c6f24e;
+  --d-accent-2: #56b6ff;
+  --d-accent-soft: #c6f24e1f;
+  --d-on-accent: #08110a;
+
+  --d-pass: #4ade80;
+  --d-fail: #ff5f56;
+  --d-error: #ff9f43;
+  --d-warn: #ffd166;
+  --d-info: #56b6ff;
+  --d-contested: #d98cff;
+  --d-idle: #5d6b77;
+
+  --d-font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-sans: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --d-radius-card: 3px;
+  --d-radius-chip: 2px;
+
+  --d-texture: none;
+  --d-page-wash: none;
+}
+
+/* ── Direction B — Foundry ───────────────────────────────────────────────
+   Warm charcoal, editorial serif for the prose that matters, copper accent,
+   a faint grain. Argues that the *why* is the valuable object, so intent and
+   rationale get typographic weight the metadata does not. */
+:root[data-direction='foundry'] {
+  --d-bg: #13110f;
+  --d-bg-deep: #0c0a09;
+  --d-surface: #1a1714;
+  --d-surface-2: #211d19;
+  --d-surface-3: #2a251f;
+  --d-line: #2e2822;
+  --d-line-strong: #453c33;
+
+  --d-ink: #f0e9df;
+  --d-ink-2: #b5a898;
+  --d-ink-3: #7d7266;
+
+  --d-accent: #e08a3c;
+  --d-accent-2: #6fa8c4;
+  --d-accent-soft: #e08a3c1f;
+  --d-on-accent: #14100c;
+
+  --d-pass: #8fbf6a;
+  --d-fail: #e0603c;
+  --d-error: #d99b3c;
+  --d-warn: #e0b93c;
+  --d-info: #6fa8c4;
+  --d-contested: #c98bb8;
+  --d-idle: #7d7266;
+
+  --d-font-display: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --d-font-sans: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --d-radius-card: 2px;
+  --d-radius-chip: 2px;
+
+  --d-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  --d-page-wash: radial-gradient(120% 80% at 50% -10%, #2a231c 0%, transparent 60%);
+}
+
+/* ── Direction C — Halo ──────────────────────────────────────────────────
+   Deep blue-black, one light source, luminous state. The object you are
+   looking at is the only thing emitting light; everything else recedes. */
+:root[data-direction='halo'] {
+  --d-bg: #080a14;
+  --d-bg-deep: #05060d;
+  --d-surface: #0d1020;
+  --d-surface-2: #131829;
+  --d-surface-3: #1a2036;
+  --d-line: #1e2440;
+  --d-line-strong: #2f3960;
+
+  --d-ink: #e6e9f7;
+  --d-ink-2: #9aa3c4;
+  --d-ink-3: #646d94;
+
+  --d-accent: #7c6cff;
+  --d-accent-2: #56c8ff;
+  --d-accent-soft: #7c6cff26;
+  --d-on-accent: #f2f0ff;
+
+  --d-pass: #43e0a8;
+  --d-fail: #ff5d7a;
+  --d-error: #ffa057;
+  --d-warn: #ffd166;
+  --d-info: #56c8ff;
+  --d-contested: #c07cff;
+  --d-idle: #646d94;
+
+  --d-font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-sans: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --d-radius-card: 12px;
+  --d-radius-chip: 999px;
+
+  --d-texture: none;
+  --d-page-wash: radial-gradient(90% 55% at 50% -15%, #241f5e 0%, transparent 65%);
+}
+
+/* ── Direction D — Filament ──────────────────────────────────────────────
+   Halo, taken all the way. A dark room with a live aurora behind it and one
+   luminous wire running through the work. Almost nothing is on screen at
+   once: the wire holds every work order as a bead of light, and exactly one
+   of them is lit and legible. Everything else is disclosed on demand. */
+:root[data-direction='filament'] {
+  --d-bg: #04050b;
+  --d-bg-deep: #010104;
+  --d-surface: #0b0d1c;
+  --d-surface-2: #10132a;
+  --d-surface-3: #171b3a;
+  --d-line: #1b2044;
+  --d-line-strong: #2c3468;
+
+  --d-ink: #eef0ff;
+  --d-ink-2: #a2a8d4;
+  --d-ink-3: #626892;
+
+  --d-accent: #8b6bff;
+  --d-accent-2: #2fe6ff;
+  --d-accent-soft: #8b6bff2e;
+  --d-on-accent: #f6f4ff;
+
+  --d-pass: #3be8b0;
+  --d-fail: #ff4d6d;
+  --d-error: #ffab5c;
+  --d-warn: #ffc46b;
+  --d-info: #57d3ff;
+  --d-contested: #d17cff;
+  --d-idle: #3a4070;
+
+  --d-font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-sans: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --d-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --d-radius-card: 20px;
+  --d-radius-chip: 999px;
+
+  --d-texture: none;
+  --d-page-wash: none;
+}
+
+/* Aurora: three slow, enormous, out-of-focus light sources. Long periods and
+   prime-ish offsets so the field never visibly loops. */
+@keyframes drift-a {
+  0%,
+  100% {
+    transform: translate3d(-8%, -6%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10%, 8%, 0) scale(1.25);
+  }
+}
+@keyframes drift-b {
+  0%,
+  100% {
+    transform: translate3d(6%, 10%, 0) scale(1.15);
+  }
+  50% {
+    transform: translate3d(-9%, -4%, 0) scale(0.9);
+  }
+}
+@keyframes drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 4%, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(4%, -8%, 0) scale(1.3);
+  }
+}
+
+/* A failing check does not blink — it breathes. Blinking is an alarm; this is
+   a thing that is wrong and will stay wrong until someone looks at it. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ignite {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.aurora-a {
+  animation: drift-a 47s ease-in-out infinite;
+}
+.aurora-b {
+  animation: drift-b 61s ease-in-out infinite;
+}
+.aurora-c {
+  animation: drift-c 73s ease-in-out infinite;
+}
+.breathe {
+  animation: breathe 3.2s ease-in-out infinite;
+}
+.ignite {
+  animation: ignite 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-a,
+  .aurora-b,
+  .aurora-c,
+  .breathe,
+  .ignite {
+    animation: none;
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--d-bg);
+    color: var(--d-ink);
+    font-family: var(--d-font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv05' 1, 'ss03' 1;
+  }
+
+  /* Tabular figures everywhere a number is compared to another number. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+@utility page-wash {
+  background-image: var(--d-page-wash);
+}
+
+@utility grain {
+  position: relative;
+}
+
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--d-texture);
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+/* Scrollbars should not shout in a dark, dense tool. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--d-line-strong) transparent;
+}

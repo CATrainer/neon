@@ -1,0 +1,10 @@
+{
+  // One project across the workspace, type-checked only. Everything runs
+  // through tsx, so there is no build output to keep in sync — the compiler is
+  // here to catch mistakes, not to produce artifacts.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["packages/*/src/**/*.ts", "service/src/**/*.ts", "cli/src/**/*.ts", "vitest.config.ts"]
+}

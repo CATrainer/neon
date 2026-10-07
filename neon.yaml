@@ -1,0 +1,11 @@
+# Repo configuration for the Neon plugin's hooks.
+
+protected_paths:
+  - "infra/**"
+  - ".github/workflows/**"
+  - "service/src/db/migrations/**"
+
+format:
+  command: npx prettier --write
+lint:
+  command: npm run typecheck

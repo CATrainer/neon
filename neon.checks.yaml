@@ -1,0 +1,32 @@
+# Checks this repo declares. A work order's done_when names these.
+#
+# Declared by the repo, not configured in the service: adding a new kind of
+# evidence must never require a schema change.
+
+checks:
+  - name: noop
+    kind: noop
+    description: Always passes. For proving the loop.
+
+  - name: tests.unit
+    kind: command
+    runnerRef: npm test
+    description: Unit tests across the workspace.
+
+  - name: tests.integration
+    kind: command
+    runnerRef: npm run test:integration
+    description: Integration tests against the compose Postgres.
+
+  - name: typecheck
+    kind: command
+    runnerRef: npm run typecheck
+    description: The whole workspace type-checks.
+
+  - name: record.schema
+    kind: schema
+    description: >-
+      A record exists at the change's spec path and carries the fields its kind
+      requires.
+    defaultParams:
+      kind: decision

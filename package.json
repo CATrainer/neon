@@ -1,0 +1,33 @@
+{
+  "name": "neon",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Engineering platform for teams where most code is written by AI agents.",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "service",
+    "cli"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d postgres",
+    "db:down": "docker compose -f infra/docker-compose.yml down",
+    "db:migrate": "npm run migrate --workspace service",
+    "seed": "npm run seed --workspace service",
+    "dev": "npm run dev --workspace service",
+    "dev:ui": "npm run dev --prefix ui"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.20.1",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
