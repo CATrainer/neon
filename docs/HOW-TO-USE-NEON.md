@@ -1,11 +1,11 @@
 # How to use Neon
 
-For daily use, on your own machine. Setup and troubleshooting are in
-`RUNBOOK.md`; this is the workflow.
+For daily use, on your own machine. Setup is in the README; this is the
+workflow.
 
-`neon` below means `node cli/bin/neon.js` run from this repo, or the alias in the
-runbook. Run it from inside the repo you are working on: it works out which
-repo and branch you are on from git.
+`neon` below means `node cli/bin/neon.js` run from this repo, or an alias for
+it. Run it from inside the repo you are working on: it works out which repo and
+branch you are on from git.
 
 ---
 
@@ -339,11 +339,11 @@ no public endpoint.
 | Checking out a branch name that differs from what `neon_start_work` returned | Neon can't find the claim (the branch *is* the link between git and Neon); `neon status` says nothing is claimed and the Stop hook stands aside | Use the returned branch exactly. If you got it wrong, `git branch -m <exact-name>` |
 | Finishing before checking | `finish` refuses: "has never run on this change" | `neon check`, then `neon finish` |
 | Checking with uncommitted changes and then committing different code | The runs are pinned to the old HEAD | Commit first, then check |
-| Running `npm run seed` with `.env` pointing at your real database | Refused, if the database has any events | Seed the demo database explicitly (see the runbook) |
+| Running `npm run seed` with `.env` pointing at your real database | Refused, if the database has any events | Seed the demo database explicitly: `DATABASE_URL=postgres://neon:neon@localhost:5433/neon npm run seed` |
 | Editing `neon.checks.yaml` and forgetting to sync | Checks run the old commands, or a new check "is not registered" | `neon checks sync` |
 | Expecting a change to become `merged` | It stays `open`; Neon can't see merges without the GitHub App | Mark the work order done by hand (section 1) |
-| No components declared for a repo | Context packs come back nearly empty | Declare components (`POST /api/repos/<id>/components`, see the runbook) |
-| Trying `neon finish --override` and being told no terminal is attached | Node didn't detect an interactive terminal. Some Git Bash (mintty) setups do this; not verified on this machine | Run it from PowerShell or Windows Terminal |
+| No components declared for a repo | Context packs come back nearly empty | Declare components (`POST /api/repos/<id>/components`) |
+| Trying `neon finish --override` and being told no terminal is attached | Node didn't detect an interactive terminal. Some Git Bash (mintty) setups do this | Run it from PowerShell or Windows Terminal |
 | Switching branches while `neon check` runs | `npm run dev` restarts the service on file changes, killing the check mid-run | Let checks finish before switching branches |
 | Asking the agent to write `.neon/...` or edit `.claude/settings*.json` | Denied by the PreToolUse hook | Make that change yourself |
 | Writing a long, paraphrased capture of an old idea | The prior rejection isn't found (trigram matching) | Keep capture titles short and use the key nouns |
